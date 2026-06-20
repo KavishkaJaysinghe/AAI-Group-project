@@ -1,0 +1,33 @@
+# TeleGuard — pinned dependencies
+# Python 3.10+ required
+
+# --- Core data / numerics ---
+pandas==2.2.3
+numpy==2.1.2
+
+# --- Classical ML ---
+scikit-learn==1.5.2
+xgboost==2.0.3
+imbalanced-learn==0.12.3
+
+# --- GAN / synthetic data ---
+sdv==1.37.1            # provides CTGAN, evaluation, metadata
+
+# --- Visualization ---
+matplotlib>=3.10.0
+seaborn==0.13.2
+plotly==5.22.0
+
+# --- LLM explanations ---
+google-genai>=1.0.0    # PRIMARY: Gemini API (free tier). New unified SDK.
+anthropic==0.34.2      # optional fallback provider
+openai==1.40.0         # optional fallback provider
+python-dotenv==1.0.1
+
+# --- Dashboard ---
+streamlit==1.36.0
+
+# --- Notebooks / experiments ---
+jupyterlab==4.2.1
+ipykernel==6.29.4
+tqdm==4.66.4
