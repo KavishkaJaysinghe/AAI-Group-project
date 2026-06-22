@@ -40,6 +40,7 @@ USER:
 
 from __future__ import annotations
 
+import concurrent.futures
 import os
 from pathlib import Path
 
@@ -57,7 +58,12 @@ except ImportError:
 DEFAULT_ANTHROPIC_MODEL = "claude-opus-4-8"   # cheaper option: claude-haiku-4-5
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"     # free tier
 MAX_TOKENS = 512          # modest cap — these explanations are short
-REQUEST_TIMEOUT = 30.0    # seconds
+REQUEST_TIMEOUT = 30.0    # per-request timeout passed to the SDK (Anthropic)
+OVERALL_TIMEOUT = 35.0    # hard cap so the dashboard never hangs on a slow API
+
+# Single shared worker so a slow/blocked API call can be abandoned without
+# blocking the caller (Streamlit) — the UI shows the fallback instead of spinning.
+_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="llm")
 
 SYSTEM_PROMPT = (
     "You are a telecom security analyst. Explain network anomalies clearly and "
@@ -164,9 +170,19 @@ def explain_anomaly(features: dict) -> str:
     returns a fallback string so the dashboard stays usable.
     """
     provider = os.getenv("LLM_PROVIDER", "anthropic").strip().lower()
-    if provider == "gemini":
-        return _explain_with_gemini(features)
-    return _explain_with_anthropic(features)
+    fn = _explain_with_gemini if provider == "gemini" else _explain_with_anthropic
+
+    # Run with a hard timeout so a slow/blocked network never freezes the UI.
+    future = _EXECUTOR.submit(fn, features)
+    try:
+        return future.result(timeout=OVERALL_TIMEOUT)
+    except concurrent.futures.TimeoutError:
+        return _fallback(
+            f"{provider} did not respond within {OVERALL_TIMEOUT:.0f}s "
+            f"(check your network / API key)"
+        )
+    except Exception as exc:  # pragma: no cover - last-resort safety net
+        return _fallback(f"unexpected error: {exc}")
 
 
 # --------------------------------------------------------------------------- #
